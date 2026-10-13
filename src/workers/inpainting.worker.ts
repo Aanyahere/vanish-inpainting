@@ -36,9 +36,16 @@ self.onmessage = (e: MessageEvent<WorkerInMessage>) => {
             lastStreamTime = now;
             lastReportedFilled = progressData.stats.filledPixels;
 
+            const previewImageData = new ImageData(
+              new Uint8ClampedArray(progressData.currentRgba),
+              imageData.width,
+              imageData.height
+            );
+
             const progressMsg: WorkerOutMessage = {
               type: 'PROGRESS',
               stats: progressData.stats,
+              previewImageData,
               frontPoints: progressData.frontPoints.slice(0, 500), // sample for UI display
             };
             self.postMessage(progressMsg);

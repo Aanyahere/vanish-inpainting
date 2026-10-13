@@ -15,6 +15,7 @@ export interface StepCallbackData {
   currentPatch?: Point;
   sourcePatch?: Point;
   frontPoints: Point[];
+  currentRgba: Uint8ClampedArray;
   shouldYield?: boolean;
 }
 
@@ -224,6 +225,7 @@ export function runCriminisiInpainting(
         currentPatch: targetCenter,
         sourcePatch: sourceCenter ?? undefined,
         frontPoints,
+        currentRgba: rgba,
       });
 
       if (!continueRun) break;

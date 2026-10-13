@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import type { Point, InpaintingStats } from '../algorithm/types';
 
 export type ToolMode = 'brush' | 'eraser';
 
@@ -12,6 +13,9 @@ interface DarkroomCanvasProps {
   isProcessing: boolean;
   maskCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   previewImageData: ImageData | null;
+  frontPoints?: Point[];
+  progressStats?: InpaintingStats | null;
+  patchRadius?: number;
 }
 
 export const DarkroomCanvas: React.FC<DarkroomCanvasProps> = ({
@@ -24,6 +28,9 @@ export const DarkroomCanvas: React.FC<DarkroomCanvasProps> = ({
   isProcessing,
   maskCanvasRef,
   previewImageData,
+  frontPoints,
+  progressStats,
+  patchRadius = 4,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -49,13 +56,56 @@ export const DarkroomCanvas: React.FC<DarkroomCanvasProps> = ({
     }
   }, [imageElement, previewImageData, width, height]);
 
-  // 2. Cursor overlay ring
+  // 2. Cursor overlay ring & Live inpainting inspector overlay
   useEffect(() => {
     if (!cursorCanvasRef.current) return;
     const ctx = cursorCanvasRef.current.getContext('2d');
     if (!ctx) return;
 
     ctx.clearRect(0, 0, width, height);
+
+    if (isProcessing) {
+      // Draw glowing fill-front points (δΩ contour)
+      if (frontPoints && frontPoints.length > 0) {
+        ctx.fillStyle = '#F5A623';
+        for (let i = 0; i < frontPoints.length; i++) {
+          ctx.fillRect(frontPoints[i].x - 0.5, frontPoints[i].y - 0.5, 2, 2);
+        }
+      }
+
+      // Draw active target patch Ψ_p (cyan)
+      const r = patchRadius;
+      if (progressStats?.currentPatchCenter) {
+        const { x, y } = progressStats.currentPatchCenter;
+        ctx.strokeStyle = '#38BDF8';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(x - r, y - r, 2 * r + 1, 2 * r + 1);
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.25)';
+        ctx.fillRect(x - r, y - r, 2 * r + 1, 2 * r + 1);
+      }
+
+      // Draw best matching source patch Ψ_q (emerald)
+      if (progressStats?.bestSourceCenter) {
+        const { x, y } = progressStats.bestSourceCenter;
+        ctx.strokeStyle = '#10B981';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(x - r, y - r, 2 * r + 1, 2 * r + 1);
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.25)';
+        ctx.fillRect(x - r, y - r, 2 * r + 1, 2 * r + 1);
+
+        if (progressStats.currentPatchCenter) {
+          ctx.beginPath();
+          ctx.setLineDash([3, 3]);
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
+          ctx.lineWidth = 1.2;
+          ctx.moveTo(x, y);
+          ctx.lineTo(progressStats.currentPatchCenter.x, progressStats.currentPatchCenter.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+      return;
+    }
 
     if (isMouseOver && cursorPos && !isProcessing) {
       ctx.beginPath();
@@ -80,7 +130,7 @@ export const DarkroomCanvas: React.FC<DarkroomCanvasProps> = ({
       ctx.fillStyle = '#FFFFFF';
       ctx.fill();
     }
-  }, [cursorPos, isMouseOver, brushSize, toolMode, isProcessing, width, height]);
+  }, [cursorPos, isMouseOver, brushSize, toolMode, isProcessing, width, height, frontPoints, progressStats, patchRadius]);
 
   // Coordinate conversion from client mouse to canvas coordinates
   const getCanvasCoords = (e: React.PointerEvent<HTMLCanvasElement>): { x: number; y: number } => {

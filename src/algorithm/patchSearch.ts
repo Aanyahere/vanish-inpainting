@@ -19,7 +19,7 @@ export function findBestMatchingPatch(
   px: number,
   py: number,
   mask: Uint8Array,
-  _initialMask: Uint8Array,
+  initialMask: Uint8Array,
   rgba: Uint8ClampedArray,
   labData: Float32Array,
   width: number,
@@ -81,14 +81,15 @@ export function findBestMatchingPatch(
   let bestQx = -1;
   let bestQy = -1;
 
-  // Helper to check if a candidate patch Ψ_q is entirely contained in Φ (no hole pixels)
-  function isCandidatePatchValid(cx: number, cy: number): boolean {
+  // Helper to check if a candidate patch Ψ_q is entirely contained in source region (no hole pixels)
+  // Per Criminisi 2004: valid patches must be entirely contained in Φ = I - Ω0
+  function isCandidatePatchValid(cx: number, cy: number, strictInitial = true): boolean {
+    const targetMask = strictInitial ? initialMask : mask;
     for (let dy = -r; dy <= r; dy++) {
       const rowOffset = (cy + dy) * width;
       for (let dx = -r; dx <= r; dx++) {
         const idx = rowOffset + (cx + dx);
-        // Patch must only sample from originally known pixels or current known pixels
-        if (mask[idx] !== 0) return false;
+        if (targetMask[idx] !== 0) return false;
       }
     }
     return true;
@@ -139,26 +140,11 @@ export function findBestMatchingPatch(
     return ssd;
   }
 
-  // Pass 1: Scan candidates in the search window using stride
-  for (let qy = searchMinY; qy <= searchMaxY; qy += stride) {
-    for (let qx = searchMinX; qx <= searchMaxX; qx += stride) {
-      // Don't choose a patch identical to center if it contains hole
-      if (isCandidatePatchValid(qx, qy)) {
-        const ssd = computeSSD(qx, qy);
-        if (ssd < bestSSD) {
-          bestSSD = ssd;
-          bestQx = qx;
-          bestQy = qy;
-        }
-      }
-    }
-  }
-
-  // If no candidate found in the window, fallback to full image
-  if (bestQx === -1 && (searchMinX > r || searchMinY > r || searchMaxX < width - 1 - r || searchMaxY < height - 1 - r)) {
-    for (let qy = r; qy <= height - 1 - r; qy += 2) {
-      for (let qx = r; qx <= width - 1 - r; qx += 2) {
-        if (isCandidatePatchValid(qx, qy)) {
+  // Helper to scan a region for the best patch
+  function scanRegion(minX: number, maxX: number, minY: number, maxY: number, step: number, strict: boolean) {
+    for (let qy = minY; qy <= maxY; qy += step) {
+      for (let qx = minX; qx <= maxX; qx += step) {
+        if (isCandidatePatchValid(qx, qy, strict)) {
           const ssd = computeSSD(qx, qy);
           if (ssd < bestSSD) {
             bestSSD = ssd;
@@ -167,6 +153,22 @@ export function findBestMatchingPatch(
           }
         }
       }
+    }
+  }
+
+  // Pass 1: Scan candidates in the search window (strict initial source region)
+  scanRegion(searchMinX, searchMaxX, searchMinY, searchMaxY, stride, true);
+
+  // If no candidate found in the window, expand to full image (strict initial source region)
+  if (bestQx === -1 && (searchMinX > r || searchMinY > r || searchMaxX < width - 1 - r || searchMaxY < height - 1 - r)) {
+    scanRegion(r, width - 1 - r, r, height - 1 - r, 2, true);
+  }
+
+  // Fallback: If still no pristine patch found, allow already-filled pixels
+  if (bestQx === -1) {
+    scanRegion(searchMinX, searchMaxX, searchMinY, searchMaxY, stride, false);
+    if (bestQx === -1) {
+      scanRegion(r, width - 1 - r, r, height - 1 - r, 2, false);
     }
   }
 

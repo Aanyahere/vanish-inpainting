@@ -14,6 +14,7 @@ import {
   MAX_IMAGE_DIMENSION,
 } from './utils/imageHelpers';
 import type {
+  Point,
   InpaintingConfig,
   InpaintingStats,
   WorkerInMessage,
@@ -45,6 +46,7 @@ export const App: React.FC = () => {
   // Processing state
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [progressStats, setProgressStats] = useState<InpaintingStats | null>(null);
+  const [, setFrontPoints] = useState<Point[]>([]);
   const [isResearchOpen, setIsResearchOpen] = useState<boolean>(false);
 
   // Worker reference
@@ -193,12 +195,16 @@ export const App: React.FC = () => {
 
       if (msg.type === 'PROGRESS') {
         setProgressStats(msg.stats);
+        if (msg.frontPoints) {
+          setFrontPoints(msg.frontPoints);
+        }
         if (msg.previewImageData) {
           setPreviewImageData(msg.previewImageData);
         }
       } else if (msg.type === 'COMPLETE') {
         setResultImageData(msg.resultImageData);
         setProgressStats(msg.stats);
+        setFrontPoints([]);
         setIsProcessing(false);
         worker.terminate();
         workerRef.current = null;
@@ -213,6 +219,7 @@ export const App: React.FC = () => {
       } else if (msg.type === 'ERROR') {
         console.error('Inpainting error:', msg.error);
         alert('An error occurred during inpainting: ' + msg.error);
+        setFrontPoints([]);
         setIsProcessing(false);
         worker.terminate();
         workerRef.current = null;
@@ -247,6 +254,7 @@ export const App: React.FC = () => {
       workerRef.current.terminate();
       workerRef.current = null;
     }
+    setFrontPoints([]);
     setIsProcessing(false);
   };
 
