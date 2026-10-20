@@ -46,7 +46,7 @@ export const App: React.FC = () => {
   // Processing state
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [progressStats, setProgressStats] = useState<InpaintingStats | null>(null);
-  const [, setFrontPoints] = useState<Point[]>([]);
+  const [frontPoints, setFrontPoints] = useState<Point[]>([]);
   const [isResearchOpen, setIsResearchOpen] = useState<boolean>(false);
 
   // Worker reference
@@ -352,6 +352,9 @@ export const App: React.FC = () => {
                 isProcessing={isProcessing}
                 maskCanvasRef={maskCanvasRef}
                 previewImageData={previewImageData}
+                frontPoints={frontPoints}
+                progressStats={progressStats}
+                patchRadius={patchRadius}
               />
             </div>
 
