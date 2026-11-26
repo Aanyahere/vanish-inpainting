@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import confetti from 'canvas-confetti';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Navbar } from './components/Navbar';
 import { SampleSelector } from './components/SampleSelector';
 import { DarkroomCanvas, type ToolMode } from './components/DarkroomCanvas';
@@ -406,6 +407,7 @@ export const App: React.FC = () => {
           A classical non-AI computer vision algorithm.
         </p>
       </footer>
+      <SpeedInsights />
     </div>
   );
 };
